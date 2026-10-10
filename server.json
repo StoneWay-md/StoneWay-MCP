@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/schema.json",
+  "name": "io.github.itsjustayush/stoneway-mcp",
+  "title": "StoneWay",
+  "description": "Give every AI agent the same you.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/itsjustayush/StoneWay-MCP",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "stoneway-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "STONEWAY_TOKEN",
+          "description": "Your StoneWay API key from stonewaymd.vercel.app/app/key (optional when logged in locally)",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://stonewaymd.vercel.app/api/mcp"
+    }
+  ]
+}

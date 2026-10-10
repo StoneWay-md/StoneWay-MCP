@@ -37,7 +37,24 @@ class Settings:
 
     @property
     def token(self) -> Optional[str]:
-        return os.getenv("STONEWAY_TOKEN")
+        # 1. Environment variable (primary for CI and explicit overrides)
+        env_token = os.getenv("STONEWAY_TOKEN")
+        if env_token:
+            return env_token
+
+        # 2. Local credentials file (~/.stoneway/credentials.json)
+        creds_file = Path.home() / ".stoneway" / "credentials.json"
+        if creds_file.is_file():
+            try:
+                import json
+                with open(creds_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict) and data.get("token"):
+                        return data["token"]
+            except Exception:
+                pass
+
+        return None
 
     @property
     def api_url(self) -> str:

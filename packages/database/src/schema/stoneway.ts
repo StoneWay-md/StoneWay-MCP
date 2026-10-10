@@ -162,3 +162,55 @@ export const promptLibraries = pgTable("prompt_libraries", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const oauthClients = pgTable("oauth_clients", {
+  id: text("id").primaryKey(), // client_id
+  clientSecret: text("client_secret"),
+  clientName: text("client_name").notNull().default("AI Connector"),
+  redirectUris: jsonb("redirect_uris").$type<string[]>().notNull().default([]),
+  isTrusted: boolean("is_trusted").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const oauthCodes = pgTable("oauth_codes", {
+  code: text("code").primaryKey(),
+  clientId: text("client_id").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  redirectUri: text("redirect_uri").notNull(),
+  codeChallenge: text("code_challenge"),
+  codeChallengeMethod: text("code_challenge_method"),
+  scope: text("scope"),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const oauthTokens = pgTable("oauth_tokens", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  accessToken: text("access_token").notNull().unique(),
+  refreshToken: text("refresh_token").notNull().unique(),
+  clientId: text("client_id").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  clientName: text("client_name").notNull().default("AI Agent Connector"),
+  scope: text("scope"),
+  accessExpiresAt: timestamp("access_expires_at").notNull(),
+  refreshExpiresAt: timestamp("refresh_expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at"),
+});
+
+export const deviceCodes = pgTable("device_codes", {
+  deviceCode: text("device_code").primaryKey(),
+  userCode: text("user_code").notNull().unique(),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("pending"), // pending | approved | consumed
+  token: text("token"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+

@@ -12,10 +12,12 @@ import { recordAuditEvent } from "@/lib/audit";
 export interface AuthContext {
   userId: string;
   keyId: string;
+  clientName?: string;
+  authType?: "api_key" | "oauth";
 }
 
 /**
- * Authenticates incoming REST API requests using high-performance SHA-256 hash lookup.
+ * Authenticates incoming REST API requests using high-performance SHA-256 hash lookup or OAuth token verification.
  */
 export async function authenticateBearerToken(
   req: Request
@@ -30,6 +32,41 @@ export async function authenticateBearerToken(
   }
 
   const token = authHeader.replace("Bearer ", "").trim();
+
+  // Branch 1: OAuth Access Token (e.g. from Claude.ai or ChatGPT)
+  if (token.startsWith("sw_oauth_acc_")) {
+    const [tokenRecord] = await db
+      .select()
+      .from(schema.oauthTokens)
+      .where(and(eq(schema.oauthTokens.accessToken, token), isNull(schema.oauthTokens.revokedAt)))
+      .limit(1);
+
+    if (!tokenRecord || new Date() > new Date(tokenRecord.accessExpiresAt)) {
+      return {
+        success: false,
+        status: 401,
+        error: "Invalid, revoked, or expired OAuth access token.",
+      };
+    }
+
+    // Touch lastUsedAt asynchronously
+    db.update(schema.oauthTokens)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(schema.oauthTokens.id, tokenRecord.id))
+      .catch(() => {});
+
+    return {
+      success: true,
+      context: {
+        userId: tokenRecord.userId,
+        keyId: tokenRecord.id,
+        clientName: tokenRecord.clientName,
+        authType: "oauth",
+      },
+    };
+  }
+
+  // Branch 2: Static Developer API Key (e.g. Claude Code, Cursor, Desktop)
   if (!token.startsWith("sw_")) {
     return {
       success: false,
@@ -83,6 +120,8 @@ export async function authenticateBearerToken(
     context: {
       userId: activeKey.userId,
       keyId: activeKey.id,
+      clientName: activeKey.name,
+      authType: "api_key",
     },
   };
 }

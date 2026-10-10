@@ -5,6 +5,11 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "StoneWay — Give every AI agent the same you.",
   description: "StoneWay gives your AI agents a persistent, user-owned source of identity, projects, preferences and context.",
+  icons: {
+    icon: "/logo-icon.png",
+    shortcut: "/favicon.svg",
+    apple: "/logo-icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -19,8 +24,9 @@ export default function RootLayout({
         <header className="border-b border-neutral-900 bg-black/80 backdrop-blur sticky top-0 z-50">
           <div className="max-w-5xl mx-auto px-4 h-12 flex items-center justify-between text-xs tracking-wider">
             <div className="flex items-center space-x-6">
-              <Link href="/" className="font-bold text-white hover:opacity-80 transition">
-                STONEWAY
+              <Link href="/" className="flex items-center space-x-2 font-bold text-white hover:opacity-80 transition">
+                <img src="/logo-icon.png" alt="StoneWay" className="w-5 h-5 rounded object-contain border border-neutral-800" />
+                <span>STONEWAY</span>
               </Link>
               <Link href="/docs" className="text-neutral-400 hover:text-white transition">
                 docs

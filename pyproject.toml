@@ -45,3 +45,4 @@ stoneway-mcp = "stoneway_mcp.server:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["stoneway_mcp*"]
+exclude = ["apps*", "packages*", "tests*", "patches*"]

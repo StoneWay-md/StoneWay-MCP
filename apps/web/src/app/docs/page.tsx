@@ -21,29 +21,39 @@ export default function DocsPage() {
       <section className="space-y-4">
         <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
           <Terminal className="w-4 h-4 text-emerald-400" />
-          <span>1. Quick Start</span>
+          <span>1. Quick Start (Zero-Token Setup)</span>
         </h2>
         <p className="text-neutral-400">
-          StoneWay acts as a cloud-backed memory vault and bio generator for all your AI coding agents. One single bearer token (<code className="text-neutral-200">sw_...</code>) coordinates memory across all tools on your computer.
+          StoneWay acts as a cloud-backed memory vault and profile generator for all your AI coding agents. We eliminate token friction with two seamless authentication methods:
         </p>
-        <ol className="list-decimal pl-5 space-y-2 text-neutral-400">
-          <li>
-            Sign in to the StoneWay dashboard with GitHub at{" "}
-            <Link href="/login" className="text-white underline">
-              /login
-            </Link>.
-          </li>
-          <li>
-            Navigate to{" "}
-            <Link href="/app/key" className="text-white underline">
-              /app/key
-            </Link>{" "}
-            and copy your active token (<code className="text-neutral-300">sw_...</code>).
-          </li>
-          <li>
-            Copy the config snippet below for each agent you use. You only need to set <code className="text-neutral-300">STONEWAY_TOKEN</code>.
-          </li>
-        </ol>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <div className="bg-neutral-950 border border-neutral-900 p-4 rounded-lg space-y-2">
+            <span className="text-xs font-semibold text-emerald-400">Option A: Local Agents (CLI Device Login)</span>
+            <p className="text-neutral-400 text-[11px]">
+              Run one command to authenticate via your browser. Your credentials are securely cached in <code className="text-neutral-300">~/.stoneway/credentials.json</code> so agent configs need no secrets!
+            </p>
+            <pre className="p-2 bg-black border border-neutral-900 rounded text-[11px] text-neutral-200 font-mono overflow-x-auto">
+{`npx -y stoneway-mcp login
+# or with Python:
+uvx stoneway-mcp login`}
+            </pre>
+          </div>
+          <div className="bg-neutral-950 border border-neutral-900 p-4 rounded-lg space-y-2">
+            <span className="text-xs font-semibold text-blue-400">Option B: Web Agents (Claude.ai & ChatGPT)</span>
+            <p className="text-neutral-400 text-[11px]">
+              Paste the canonical remote URL into your client&apos;s custom connector screen and log in with GitHub via RFC 8414 OAuth 2.0:
+            </p>
+            <pre className="p-2 bg-black border border-neutral-900 rounded text-[11px] text-neutral-200 font-mono overflow-x-auto">
+{`https://stonewaymd.vercel.app/api/mcp`}
+            </pre>
+            <p className="text-neutral-500 text-[10px]">
+              Manage or revoke connected apps anytime at <Link href="/app/connections" className="text-neutral-300 underline">/app/connections</Link>.
+            </p>
+          </div>
+        </div>
+        <p className="text-neutral-500 text-[11px]">
+          Static API keys (<code className="text-neutral-300">sw_...</code>) from <Link href="/app/key" className="text-neutral-300 underline">/app/key</Link> remain fully supported via the <code className="text-neutral-300">STONEWAY_TOKEN</code> environment variable for CI/headless environments.
+        </p>
       </section>
 
       {/* 2. Standing Instructions */}
@@ -74,6 +84,9 @@ Before answering anything about me, my projects, or my preferences, call StoneWa
           <p className="text-neutral-500 mt-1">
             Choose your client below and paste the configuration into the corresponding settings file.
           </p>
+          <div className="mt-2 p-2.5 bg-emerald-950/30 border border-emerald-900/50 rounded text-[11px] text-emerald-300">
+            <strong>💡 Zero-Token Tip:</strong> If you ran <code className="text-white">npx -y stoneway-mcp login</code> (or <code className="text-white">uvx stoneway-mcp login</code>), your credentials are automatically read from disk. You can omit the <code className="text-white">env</code> block completely!
+          </div>
         </div>
 
         {/* Claude Desktop */}
@@ -209,16 +222,31 @@ env = { STONEWAY_TOKEN = "sw_your_token_here" }`}
         </div>
 
         {/* Remote HTTP for Cloud Agents */}
-        <div className="space-y-2 bg-neutral-950 p-4 border border-neutral-800 rounded-lg">
+        <div className="space-y-3 bg-neutral-950 p-4 border border-neutral-800 rounded-lg">
           <h3 className="font-bold text-white flex items-center gap-2">
-            <span>Remote HTTP Server (Claude.ai & ChatGPT Cloud Agents)</span>
+            <span>Remote HTTP Server with OAuth 2.0 (Claude.ai & ChatGPT)</span>
           </h3>
           <p className="text-neutral-400 text-[11px]">
-            Cloud agents cannot run terminal binaries on your computer. Point them to your hosted Streamable HTTP MCP URL:
+            Web-based agents running in the cloud (such as <strong className="text-neutral-200">Claude.ai</strong> or <strong className="text-neutral-200">ChatGPT</strong> Custom Connectors) cannot run local terminal binaries. Connect them directly to StoneWay&apos;s hosted Streamable HTTP endpoint:
           </p>
-          <div className="p-3 bg-black border border-neutral-900 rounded text-[11px] space-y-1">
-            <div><strong>Endpoint URL:</strong> <code className="text-emerald-400">https://stonewaymd.vercel.app/mcp</code></div>
-            <div><strong>Authorization:</strong> <code className="text-neutral-300">Bearer sw_your_token_here</code></div>
+          <div className="p-3 bg-black border border-neutral-900 rounded text-[11px] space-y-1.5 font-mono">
+            <div><span className="text-neutral-500">Canonical URL:</span> <code className="text-emerald-400">https://stonewaymd.vercel.app/api/mcp</code></div>
+            <div><span className="text-neutral-500">Alias URL:</span> <code className="text-neutral-300">https://stonewaymd.vercel.app/mcp</code></div>
+            <div><span className="text-neutral-500">Authentication:</span> <span className="text-neutral-300">RFC 8414 OAuth 2.0 (Auto-discovered via /.well-known) or Bearer sw_...</span></div>
+          </div>
+          <div className="space-y-1.5 text-[11px] text-neutral-400 pt-1">
+            <p>
+              • <strong>Claude.ai:</strong> Enter the URL in your Claude Custom Connector screen. Claude discovers the metadata, redirects you to sign in with GitHub, and obtains an OAuth token automatically.
+            </p>
+            <p>
+              • <strong>ChatGPT:</strong> Supports Dynamic Client Registration (<code className="text-neutral-300">/api/oauth/register</code>) and RFC 7636 PKCE.
+            </p>
+            <p>
+              • <strong>Claude Code & Desktop:</strong> You can also pass <code className="text-neutral-300">Authorization: Bearer sw_...</code> in headers if using HTTP transport directly.
+            </p>
+            <p>
+              • <strong>Security Safeguards:</strong> Query string tokens (<code className="text-neutral-400">?token=</code>) are strictly forbidden to prevent URL logging. Active OAuth grants can be viewed and revoked anytime at <Link href="/app/connections" className="text-emerald-400 underline">/app/connections</Link>.
+            </p>
           </div>
         </div>
 

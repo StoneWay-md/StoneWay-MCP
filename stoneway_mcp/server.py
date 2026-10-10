@@ -495,8 +495,106 @@ async def reconcile_scratchpad_prompt() -> str:
     )
 
 
+def run_device_login() -> None:
+    """Performs device-style GitHub authentication and stores API key locally with mode 0600."""
+    import os
+    import time
+    import webbrowser
+    from pathlib import Path
+    from datetime import datetime
+    import httpx
+
+    base_url = settings.api_url.replace("/api/v1", "")
+    code_url = f"{base_url}/api/cli/device/code"
+    poll_url = f"{base_url}/api/cli/device/poll"
+
+    print("\n[StoneWay] Initiating terminal device login...", file=sys.stderr)
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.post(code_url)
+            if resp.status_code != 200:
+                print(f"[StoneWay Error] Failed to obtain device code: {resp.text}", file=sys.stderr)
+                sys.exit(1)
+            data = resp.json()
+
+        device_code = data["device_code"]
+        user_code = data["user_code"]
+        verification_uri = data["verification_uri_complete"]
+        interval = data.get("interval", 2)
+        expires_in = data.get("expires_in", 900)
+
+        print(f"\n=======================================================", file=sys.stderr)
+        print(f"  StoneWay Terminal Device Authorization", file=sys.stderr)
+        print(f"  Verification Code: {user_code}", file=sys.stderr)
+        print(f"  Browser URL:       {verification_uri}", file=sys.stderr)
+        print(f"=======================================================\n", file=sys.stderr)
+        print(f"Opening your browser to authenticate with GitHub...", file=sys.stderr)
+
+        try:
+            webbrowser.open(verification_uri)
+        except Exception:
+            pass
+
+        print("Waiting for browser approval...", end="", flush=True, file=sys.stderr)
+
+        start_time = time.time()
+        with httpx.Client(timeout=15.0) as client:
+            while time.time() - start_time < expires_in:
+                time.sleep(interval)
+                poll_resp = client.post(poll_url, json={"device_code": device_code})
+                if poll_resp.status_code == 200:
+                    poll_data = poll_resp.json()
+                    status = poll_data.get("status")
+                    if status == "approved":
+                        token = poll_data["token"]
+                        # Save to ~/.stoneway/credentials.json
+                        creds_dir = Path.home() / ".stoneway"
+                        creds_dir.mkdir(parents=True, exist_ok=True)
+                        creds_path = creds_dir / "credentials.json"
+
+                        with open(creds_path, "w", encoding="utf-8") as f:
+                            json.dump(
+                                {
+                                    "token": token,
+                                    "created_at": datetime.utcnow().isoformat(),
+                                    "api_url": settings.api_url,
+                                },
+                                f,
+                                indent=2,
+                            )
+
+                        # Set mode 0600 on POSIX systems
+                        try:
+                            import stat
+                            os.chmod(creds_path, stat.S_IRUSR | stat.S_IWUSR)
+                        except Exception:
+                            pass
+
+                        print(f"\n\n✓ Authentication successful!", file=sys.stderr)
+                        print(f"Credentials saved to {creds_path} (mode 0600).", file=sys.stderr)
+                        print("Your AI coding agents (Claude, Cursor, etc.) can now use StoneWay without specifying secrets.\n", file=sys.stderr)
+                        return
+                    elif status == "authorization_pending":
+                        print(".", end="", flush=True, file=sys.stderr)
+                else:
+                    err_json = poll_resp.json() if "application/json" in poll_resp.headers.get("content-type", "") else {}
+                    if err_json.get("error") == "expired_token":
+                        print("\n[StoneWay Error] Device code expired. Please run 'stoneway-mcp login' again.", file=sys.stderr)
+                        sys.exit(1)
+
+        print("\n[StoneWay Error] Authorization timed out. Please try again.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n[StoneWay Error] Login error: {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     """CLI launcher for StoneWay MCP Server."""
+    if len(sys.argv) > 1 and sys.argv[1] == "login":
+        run_device_login()
+        return
+
     parser = argparse.ArgumentParser(
         description="StoneWay MCP Server: Developer Memory & Profile Sync Protocol"
     )

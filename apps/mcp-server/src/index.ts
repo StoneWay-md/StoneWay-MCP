@@ -7,31 +7,119 @@ import { wrapInSafetyEnvelope } from "@stoneway/shared";
 
 dotenv.config();
 
-const STONEWAY_TOKEN = process.env.STONEWAY_TOKEN;
+import fs from "fs";
+import path from "path";
+import os from "os";
+import { exec } from "child_process";
+
 const rawApiUrl = process.env.STONEWAY_API_URL || "https://stonewaymd.vercel.app/api/v1";
 const STONEWAY_API_URL = rawApiUrl.endsWith("/api/v1") ? rawApiUrl : `${rawApiUrl.replace(/\/+$/, "")}/api/v1`;
+const credsDir = path.join(os.homedir(), ".stoneway");
+const credsPath = path.join(credsDir, "credentials.json");
 
-if (!STONEWAY_TOKEN) {
-  console.error(`
-===================================================================
-[StoneWay MCP Server] Error: Missing STONEWAY_TOKEN
--------------------------------------------------------------------
-Please configure your STONEWAY_TOKEN in your MCP client environment.
-You can get your token from your StoneWay dashboard at /app/key.
+// Helper: Open URL in default browser
+function openBrowser(url: string) {
+  const start = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+  exec(`${start} "${url}"`);
+}
 
-Example configuration for Claude Desktop (claude_desktop_config.json):
-{
-  "mcpServers": {
-    "stoneway": {
-      "command": "npx",
-      "args": ["-y", "stoneway-mcp"],
-      "env": {
-        "STONEWAY_TOKEN": "sw_your_token_here",
-        "STONEWAY_API_URL": "https://your-domain.vercel.app/api/v1"
+// Subcommand: npx -y stoneway-mcp login
+if (process.argv.includes("login")) {
+  async function runDeviceLogin() {
+    console.error("\n[StoneWay] Initiating terminal device login...");
+    const baseUrl = STONEWAY_API_URL.replace(/\/api\/v1\/?$/, "");
+    try {
+      const codeRes = await fetch(`${baseUrl}/api/cli/device/code`, { method: "POST" });
+      if (!codeRes.ok) {
+        console.error(`[StoneWay Error] Failed to get device code: ${await codeRes.text()}`);
+        process.exit(1);
       }
+      const data = (await codeRes.json()) as any;
+      const { device_code, user_code, verification_uri_complete, interval = 2, expires_in = 900 } = data;
+
+      console.error("\n=======================================================");
+      console.error(`  StoneWay Terminal Device Authorization`);
+      console.error(`  Verification Code: ${user_code}`);
+      console.error(`  Browser URL:       ${verification_uri_complete}`);
+      console.error("=======================================================\n");
+      console.error("Opening your browser to authenticate with GitHub...");
+
+      openBrowser(verification_uri_complete);
+      process.stderr.write("Waiting for browser approval...");
+
+      const startTime = Date.now();
+      while (Date.now() - startTime < expires_in * 1000) {
+        await new Promise((r) => setTimeout(r, interval * 1000));
+        const pollRes = await fetch(`${baseUrl}/api/cli/device/poll`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ device_code }),
+        });
+
+        if (pollRes.ok) {
+          const pollData = (await pollRes.json()) as any;
+          if (pollData.status === "approved" && pollData.token) {
+            fs.mkdirSync(credsDir, { recursive: true });
+            fs.writeFileSync(
+              credsPath,
+              JSON.stringify(
+                {
+                  token: pollData.token,
+                  created_at: new Date().toISOString(),
+                  api_url: STONEWAY_API_URL,
+                },
+                null,
+                2
+              ),
+              { encoding: "utf-8", mode: 0o600 }
+            );
+
+            console.error("\n\n✓ Authentication successful!");
+            console.error(`Credentials saved to ${credsPath} (mode 0600).`);
+            console.error("Your AI coding agents (Claude, Cursor, etc.) can now use StoneWay without specifying secrets.\n");
+            process.exit(0);
+          } else if (pollData.status === "authorization_pending") {
+            process.stderr.write(".");
+          }
+        }
+      }
+
+      console.error("\n[StoneWay Error] Device code authorization timed out.");
+      process.exit(1);
+    } catch (err: any) {
+      console.error(`\n[StoneWay Error] Login error: ${err.message}`);
+      process.exit(1);
     }
   }
+
+  runDeviceLogin();
 }
+
+// Token resolution: 1) Env var, 2) ~/.stoneway/credentials.json
+let resolvedToken = process.env.STONEWAY_TOKEN;
+if (!resolvedToken && fs.existsSync(credsPath)) {
+  try {
+    const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
+    if (creds.token) {
+      resolvedToken = creds.token;
+    }
+  } catch {}
+}
+
+const STONEWAY_TOKEN = resolvedToken;
+
+if (!STONEWAY_TOKEN && !process.argv.includes("login")) {
+  console.error(`
+===================================================================
+[StoneWay MCP Server] Error: Not Authenticated
+-------------------------------------------------------------------
+Authenticate instantly with zero configuration:
+  npx -y stoneway-mcp login
+
+Or provide your STONEWAY_TOKEN in your client configuration:
+  "env": {
+    "STONEWAY_TOKEN": "sw_your_token_here"
+  }
 ===================================================================
 `);
   process.exit(1);

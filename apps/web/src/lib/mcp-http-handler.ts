@@ -254,6 +254,50 @@ Use this tool when:
 ];
 
 export async function handleMcpHttpRequest(req: Request) {
+  const url = new URL(req.url);
+  const baseUrl = process.env.BETTER_AUTH_URL || "https://stonewaymd.vercel.app";
+  const origin = req.headers.get("origin");
+
+  // Safeguard 1: Disallow tokens in URL query strings (prevents caching & log leaks)
+  if (url.searchParams.has("token")) {
+    return NextResponse.json(
+      {
+        jsonrpc: "2.0",
+        id: null,
+        error: {
+          code: -32600,
+          message: "Passing credentials in query parameters (?token=) is prohibited. Use 'Authorization: Bearer <token>' header.",
+        },
+      },
+      { status: 400 }
+    );
+  }
+
+  // Safeguard 2: Origin validation for browser-based connectors
+  if (origin) {
+    const isAllowed =
+      origin.includes("claude.ai") ||
+      origin.includes("claude.com") ||
+      origin.includes("chatgpt.com") ||
+      origin.includes("openai.com") ||
+      origin.includes("localhost") ||
+      origin.includes("127.0.0.1") ||
+      origin.includes("stoneway") ||
+      origin.includes("vercel.app");
+
+    if (!isAllowed) {
+      return NextResponse.json(
+        {
+          jsonrpc: "2.0",
+          id: null,
+          error: { code: -32001, message: `Untrusted Origin: ${origin}` },
+        },
+        { status: 403 }
+      );
+    }
+  }
+
+  // Authenticate (supports both OAuth Access Token and sw_ developer keys)
   const authRes = await authenticateBearerToken(req);
   if (!authRes.success) {
     return NextResponse.json(
@@ -262,11 +306,19 @@ export async function handleMcpHttpRequest(req: Request) {
         id: null,
         error: { code: -32001, message: authRes.error },
       },
-      { status: authRes.status }
+      {
+        status: authRes.status,
+        headers: {
+          "WWW-Authenticate": `Bearer resource_metadata="${baseUrl}/.well-known/oauth-protected-resource"`,
+          "Access-Control-Allow-Origin": origin || "*",
+        },
+      }
     );
   }
 
   const userId = authRes.context.userId;
+  const clientName = authRes.context.clientName || "mcp_client";
+
   let body: any;
   try {
     body = await req.json();
@@ -277,6 +329,18 @@ export async function handleMcpHttpRequest(req: Request) {
       error: { code: -32700, message: "Parse error: Invalid JSON" },
     });
   }
+
+  // Record audit trail with calling client identification
+  recordAuditEvent({
+    userId,
+    event: "mcp.request",
+    agentLabel: clientName,
+    metadata: {
+      method: body?.method,
+      authType: authRes.context.authType,
+      clientName,
+    },
+  }).catch(() => {});
 
   const { jsonrpc, method, params, id } = body;
   if (jsonrpc !== "2.0") {

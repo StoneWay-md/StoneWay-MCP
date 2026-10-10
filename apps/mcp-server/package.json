@@ -2,6 +2,7 @@
   "name": "stoneway-mcp",
   "version": "0.1.0",
   "description": "Give every AI agent the same you.",
+  "mcpName": "io.github.itsjustayush/stoneway-mcp",
   "license": "MIT",
   "author": "itsjustayush",
   "bin": {

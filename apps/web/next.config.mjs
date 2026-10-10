@@ -23,6 +23,10 @@ const nextConfig = {
   async rewrites() {
     return [
       {
+        source: "/mcp",
+        destination: "/api/mcp",
+      },
+      {
         source: "/@:username/raw",
         destination: "/profile/:username/raw",
       },

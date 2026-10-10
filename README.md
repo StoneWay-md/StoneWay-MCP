@@ -1,4 +1,10 @@
-<pre>
+<p align="center">
+  <img src="./assets/logo.png" alt="StoneWay Logo" width="240" />
+</p>
+
+<!-- mcp-name: io.github.itsjustayush/stoneway-mcp -->
+
+<pre align="center">
 ███████╗████████╗ ██████╗ ███╗   ██╗███████╗██╗    ██╗ █████╗ ██╗   ██╗    ███╗   ███╗██████╗ 
 ██╔════╝╚══██╔══╝██╔═══██╗████╗  ██║██╔════╝██║    ██║██╔══██╗╚██╗ ██╔╝    ████╗ ████║██╔══██╗
 ███████╗   ██║   ██║   ██║██╔██╗ ██║█████╗  ██║ █╗ ██║███████║ ╚████╔╝     ██╔████╔██║██║  ██║
@@ -142,26 +148,53 @@ StoneWay integrates a pluggable, multi-provider storage fabric. Neon PostgreSQL 
 ### 1. Stdio (Local Node Execution)
 Add StoneWay to your agent's MCP settings using `npx`:
 
+## 🚀 Quick Setup: Zero Token Friction
+
+StoneWay eliminates API key friction with two connection options:
+
+### 1. Remote MCP with OAuth (Claude.ai & ChatGPT Web Connectors)
+
+No tokens or config files required. Just paste the URL:
+- **Canonical Endpoint:** `https://stonewaymd.vercel.app/api/mcp` (or `https://stonewaymd.vercel.app/mcp`)
+- In **Claude.ai** or **ChatGPT** Custom Connector screens, paste the URL.
+- When prompted, sign in with GitHub via Better Auth.
+- Authorize the connector once. Token refresh and session persistence are managed automatically via RFC 8414 OAuth 2.0 metadata discovery.
+- View and revoke active web agent connections anytime in your dashboard at [`/app/connections`](https://stonewaymd.vercel.app/app/connections).
+
+### 2. Local Terminal Agents (Claude Code, Cursor, Claude Desktop, Windsurf)
+
+#### Step 1: Log in once from your terminal
+```bash
+npx -y stoneway-mcp login
+# or with Python / uv:
+uvx stoneway-mcp login
+```
+This opens your browser, completes GitHub authentication, and securely writes credentials to `~/.stoneway/credentials.json` (file mode `0600`).
+
+#### Step 2: Add to your agent configuration (Zero secrets required!)
+
+**Claude Code CLI:**
+```bash
+claude mcp add stoneway npx -y stoneway-mcp
+# or:
+claude mcp add stoneway uvx stoneway-mcp
+```
+
+**Cursor / Claude Desktop (`claude_desktop_config.json`):**
 ```json
 {
   "mcpServers": {
     "stoneway": {
       "command": "npx",
-      "args": ["-y", "stoneway-mcp"],
-      "env": {
-        "STONEWAY_TOKEN": "sw_your_token_here"
-      }
+      "args": ["-y", "stoneway-mcp"]
     }
   }
 }
 ```
-
-### 2. Remote HTTP Endpoint (Cloud Agents: ChatGPT, Claude.ai)
-- **URL:** `https://stonewaymd.vercel.app/mcp`
-- **Auth:** `Authorization: Bearer sw_your_token_here`
+*(For CI/CD or headless environments, `STONEWAY_TOKEN` remains supported as an environment variable fallback).*
 
 ### 3. Standing Instruction for Every Agent
-Add this single standing instruction to your `CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, or `GEMINI.md`:
+Add this single instruction to your `CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, or `GEMINI.md`:
 
 ```markdown
 Before answering anything about me, my projects, or my preferences, call StoneWay's get_profile_context. After meaningful work, call append_note with what changed.
